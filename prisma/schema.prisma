@@ -1,0 +1,97 @@
+// Planet Film Site - Prisma şeması
+// Aşama 1: users. Aşama 3: movies + turler (ilişkili tür tabloları).
+// Diğer tablolar (user_lists, ratings, reviews) ilgili aşamalarda eklenecek.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Geliştirmede SQLite kullanılıyor; üretimde PostgreSQL'e geçilecek (spec Bölüm 2).
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite enum desteklemediği için rol metin olarak tutuluyor.
+// Geçerli değerler: "uye" | "yonetici" (varsayılan: "uye").
+model User {
+  id             Int      @id @default(autoincrement())
+  kullaniciAdi   String   @unique @map("kullanici_adi")
+  email          String   @unique
+  sifreHash      String   @map("sifre_hash")
+  rol            String   @default("uye")
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+
+  listeKayitlari Liste[]
+
+  @@map("users")
+}
+
+// TMDB'den aktarılan film bilgileri yerel önbellek olarak tutulur.
+// TMDB kullanım koşulları gereği veriler 6 aydan uzun süre önbellekte tutulamaz;
+// bu yüzden tmdb_guncelleme_tarihi ile 30 günlük yenileme yapılır.
+model Movie {
+  id                   Int       @id @default(autoincrement())
+  tmdbId               Int       @unique @map("tmdb_id")
+  baslik               String
+  orijinalBaslik       String    @map("orijinal_baslik")
+  ozet                 String    @default("")
+  yayinTarihi          DateTime? @map("yayin_tarihi")
+  sureDakika           Int?      @map("sure_dakika")
+  posterYolu           String?   @map("poster_yolu")
+  yonetmen             String    @default("")
+  oyuncular            String    @default("")
+  tmdbPuan             Float     @default(0) @map("tmdb_puan")
+  // Türkçe karakterler sadeleştirilmiş arama metni (SQLite'ta büyük/küçük harf duyarsız arama için).
+  aramaMetni           String    @default("") @map("arama_metni")
+  yayinda              Boolean   @default(true)
+  olusturmaTarihi      DateTime  @default(now()) @map("olusturma_tarihi")
+  tmdbGuncellemeTarihi DateTime  @default(now()) @map("tmdb_guncelleme_tarihi")
+
+  turler         FilmTur[]
+  listeKayitlari Liste[]
+
+  @@index([yayinTarihi])
+  @@map("movies")
+}
+
+// TMDB türleri (ad TMDB'nin seçili dildeki karşılığıdır).
+model Tur {
+  id     Int    @id @default(autoincrement())
+  tmdbId Int    @unique @map("tmdb_id")
+  ad     String
+
+  filmler FilmTur[]
+
+  @@map("turler")
+}
+
+model FilmTur {
+  filmId Int @map("film_id")
+  turId  Int @map("tur_id")
+
+  film Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+  tur  Tur   @relation(fields: [turId], references: [id], onDelete: Cascade)
+
+  @@id([filmId, turId])
+  @@index([turId])
+  @@map("film_turleri")
+}
+
+// Kullanıcı film listesi (spec Bölüm 4.3): tek tablo; her kayıt bir kullanıcıya,
+// bir filme ve bir duruma aittir. `durum` metin olarak tutulur; kitaplar için
+// "okudum"/"okuyacağım" gibi yeni değerler ileride eklenebilir.
+model Liste {
+  id              Int      @id @default(autoincrement())
+  kullaniciId     Int      @map("kullanici_id")
+  filmId          Int      @map("film_id")
+  durum           String
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+
+  kullanici User  @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+  film      Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@unique([kullaniciId, filmId])
+  @@index([filmId])
+  @@map("user_lists")
+}

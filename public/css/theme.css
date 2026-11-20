@@ -1,0 +1,33 @@
+/* Tema değişkenleri — siyah zemin, turuncu vurgu (spec Bölüm 8) */
+:root {
+  /* Renkler */
+  --renk-arkaplan: #0a0a0a;
+  --renk-yuzey: #141414;
+  --renk-yuzey-ust: #1c1c1c;
+  --renk-kenarlik: #2a2a2a;
+  --renk-metin: #f5f5f5;
+  --renk-metin-soluk: #a3a3a3;
+  --renk-vurgu: #ff7a00;
+
+  /* Turuncu: hafif şeffaflık + yumuşak dış parlaklık */
+  --vurgu-dolgu: rgba(255, 122, 0, 0.88);
+  --vurgu-dolgu-hover: rgba(255, 122, 0, 0.95);
+  --vurgu-parlaklik: 0 0 10px rgba(255, 122, 0, 0.22);
+  --vurgu-parlaklik-guclu: 0 0 16px rgba(255, 122, 0, 0.3);
+  --vurgu-cerceve: 2px solid rgba(255, 122, 0, 0.9);
+
+  /* Tipografi */
+  --font-govde: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --boyut-govde: 1rem;      /* 16px */
+  --boyut-kucuk: 0.875rem;  /* 14px */
+  --satir-araligi: 1.6;
+
+  /* Ölçüler */
+  --genislik-icerik: 1120px;
+  --dokunma-hedef: 44px;
+  --yaricap: 10px;
+  --bosluk: 1rem;
+
+  /* Geçiş */
+  --gecis: 160ms ease;
+}

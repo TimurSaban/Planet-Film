@@ -1,0 +1,27 @@
+{
+  "name": "planet-film-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Planet Film Site - film inceleme, puanlama ve yorum sitesi",
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "dev": "node --env-file=.env --watch src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "create-admin": "node --env-file=.env scripts/create-admin.js",
+    "veritabani:migrate": "prisma migrate dev",
+    "veritabani:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
+    "express": "^5.3.0",
+    "express-session": "^1.19.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3"
+  }
+}
