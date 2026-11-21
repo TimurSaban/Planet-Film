@@ -1,6 +1,7 @@
 import { kacisMetni } from "../lib/html.js";
 import { posterAdresi } from "../lib/tmdb.js";
 import { LISTE_DURUMLARI, durumBilgisi } from "../lib/listeDurumlari.js";
+import { YORUM_TURLERI, yorumTuruBilgisi } from "../lib/yorumTurleri.js";
 
 const TARIH_BICIMI = new Intl.DateTimeFormat("tr-TR", {
   day: "numeric",
@@ -218,8 +219,205 @@ export function listeBolumu({ film, kullanici, listeDurumu }) {
       </section>`;
 }
 
+function ortalamaMetni(deger) {
+  return new Intl.NumberFormat("tr-TR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(deger);
+}
+
+/** Film detayındaki puan özeti ve puan verme formu (spec 4.4). */
+export function puanBolumu({ film, kullanici, puanOzeti }) {
+  const { ortalama = 0, sayi = 0, kullaniciPuani = null } = puanOzeti ?? {};
+
+  const ozet =
+    sayi > 0
+      ? `<p class="puan-ortalama"><strong>${ortalamaMetni(ortalama)}</strong> / 10
+              <span class="puan-sayisi">· ${sayi} puan</span></p>`
+      : `<p class="puan-ortalama puan-yok">Bu filme henüz puan verilmedi.</p>`;
+
+  const secenekler = Array.from({ length: 10 }, (_, sira) => sira + 1)
+    .map(
+      (puan) => `
+              <label class="puan-secim">
+                <input type="radio" name="puan" value="${puan}"${
+                  kullaniciPuani === puan ? " checked" : ""
+                } required>
+                <span>${puan}</span>
+              </label>`
+    )
+    .join("");
+
+  const form = kullanici
+    ? `
+          <form class="puan-formu" method="post" action="/filmler/${film.id}/puan">
+            <fieldset>
+              <legend>${kullaniciPuani ? "Puanınızı değiştirin" : "Puanınız (1–10)"}</legend>
+              <div class="puan-secimler">${secenekler}
+              </div>
+            </fieldset>
+            <div class="puan-eylemler">
+              <button class="dugme dugme-birincil" type="submit">${
+                kullaniciPuani ? "Puanı güncelle" : "Puan ver"
+              }</button>
+              ${
+                kullaniciPuani
+                  ? `<p class="puan-mevcut">Puanınız: <strong>${kullaniciPuani} / 10</strong></p>`
+                  : ""
+              }
+            </div>
+          </form>`
+    : `
+          <p class="liste-durumu">Puan vermek için
+            <a href="/giris?yonlendirme=${encodeURIComponent(`/filmler/${film.id}`)}">giriş yapın</a>.
+          </p>`;
+
+  return `
+      <section id="puanlar" class="puan-bolumu">
+        <h2>Puanlar</h2>
+        ${ozet}
+        ${form}
+      </section>`;
+}
+
+/** Tek yorum kartı. Spoilerlı yorum, uyarı katmanı açılmadan görünmez (spec 4.5). */
+function yorumKarti({ yorum, filmId, sahip }) {
+  const metin = kacisMetni(yorum.icerik).replace(/\n/g, "<br>");
+  const spoiler = yorum.tur === "spoilerli";
+  const duzenlendi =
+    yorum.guncellemeTarihi &&
+    yorum.olusturmaTarihi &&
+    new Date(yorum.guncellemeTarihi).getTime() -
+      new Date(yorum.olusturmaTarihi).getTime() >
+      1000;
+
+  const icerik = spoiler
+    ? `<details class="spoiler-uyari">
+            <summary>Spoiler uyarısı — yorumu göstermek için tıklayın</summary>
+            <p class="spoiler-not">Bu yorum olay örgüsü ve sonla ilgili detaylar içeriyor.</p>
+            <p class="yorum-metni">${metin}</p>
+          </details>`
+    : `<p class="yorum-metni">${metin}</p>`;
+
+  const eylemler = sahip
+    ? `
+          <div class="yorum-eylemler">
+            <a class="dugme dugme-ikincil" href="/filmler/${filmId}?yorum=${encodeURIComponent(
+              yorum.tur
+            )}#yorum-formu">Düzenle</a>
+            <form method="post" action="/filmler/${filmId}/yorumlar/${encodeURIComponent(
+              yorum.tur
+            )}/sil">
+              <button class="dugme dugme-ikincil" type="submit">Sil</button>
+            </form>
+          </div>`
+    : "";
+
+  return `
+        <article class="yorum-karti">
+          <header class="yorum-basligi">
+            <span class="yorum-yazar">${kacisMetni(yorum.kullanici?.kullaniciAdi ?? "Üye")}</span>
+            <time datetime="${new Date(yorum.olusturmaTarihi).toISOString()}">${TARIH_BICIMI.format(
+              new Date(yorum.olusturmaTarihi)
+            )}</time>
+            ${duzenlendi ? '<span class="yorum-duzenlendi">düzenlendi</span>' : ""}
+            ${spoiler ? '<span class="rozet rozet-spoiler">Spoiler</span>' : ""}
+          </header>
+          ${icerik}
+          ${eylemler}
+        </article>`;
+}
+
+/** Film detayındaki sekmeli yorum bölümü ve yorum formu (spec 4.5). */
+export function yorumlarBolumu({
+  film,
+  kullanici,
+  yorumlar = [],
+  kullaniciYorumlari = [],
+  seciliTur = "spoilersiz",
+}) {
+  const secili = yorumTuruBilgisi(seciliTur) ?? YORUM_TURLERI[0];
+
+  const sekmeler = YORUM_TURLERI.map((tur) => {
+    const aktif = tur.deger === secili.deger;
+    return `<a class="liste-sekme${aktif ? " aktif" : ""}" href="/filmler/${
+      film.id
+    }?yorum=${encodeURIComponent(tur.deger)}#yorumlar"${
+      aktif ? ' aria-current="page"' : ""
+    }>${kacisMetni(tur.sekme)}</a>`;
+  }).join("\n        ");
+
+  const liste = yorumlar.length
+    ? `
+        <ul class="yorum-listesi">
+${yorumlar
+  .map(
+    (yorum) =>
+      `          <li>${yorumKarti({
+        yorum,
+        filmId: film.id,
+        sahip: kullanici?.id === yorum.kullaniciId,
+      })}</li>`
+  )
+  .join("\n")}
+        </ul>`
+    : `<p class="bos-durum">Bu film için henüz ${kacisMetni(
+        secili.sekme.toLowerCase()
+      )} yorum yok. İlk yorumu siz yazın.</p>`;
+
+  const mevcutYorumum =
+    kullaniciYorumlari.find((yorum) => yorum.tur === secili.deger) ?? null;
+
+  const form = kullanici
+    ? `
+        <form id="yorum-formu" class="form yorum-formu" method="post" action="/filmler/${
+          film.id
+        }/yorumlar">
+          <input type="hidden" name="tur" value="${kacisMetni(secili.deger)}">
+          <div class="form-alani">
+            <label for="yorum-icerik">${
+              mevcutYorumum ? "Yorumunuzu düzenleyin" : kacisMetni(secili.baslik)
+            }</label>
+            <textarea id="yorum-icerik" name="icerik" rows="6" minlength="3" maxlength="5000" required
+                      placeholder="Filmi izleyenlere düşüncelerinizi aktarın.">${kacisMetni(
+                        mevcutYorumum?.icerik ?? ""
+                      )}</textarea>
+            <p class="alan-ipucu">${kacisMetni(secili.ipucu)}</p>
+          </div>
+          <button class="dugme dugme-birincil" type="submit">${
+            mevcutYorumum ? "Yorumu güncelle" : "Yorumu yayınla"
+          }</button>
+        </form>`
+    : `
+        <p class="liste-durumu">Yorum yazmak için
+          <a href="/giris?yonlendirme=${encodeURIComponent(
+            `/filmler/${film.id}?yorum=${secili.deger}#yorumlar`
+          )}">giriş yapın</a>.
+        </p>`;
+
+  return `
+      <section id="yorumlar" class="yorumlar-bolumu">
+        <h2>Yorumlar</h2>
+        <nav class="liste-sekmeleri" aria-label="Yorum türleri">
+        ${sekmeler}
+        </nav>
+        ${liste}
+        ${form}
+      </section>`;
+}
+
 /** /filmler/:id sayfası. */
-export function filmDetayIcerigi({ film, eklendi = false, kullanici = null, listeDurumu = null, bildirim = null }) {
+export function filmDetayIcerigi({
+  film,
+  eklendi = false,
+  kullanici = null,
+  listeDurumu = null,
+  bildirim = null,
+  puanOzeti = null,
+  yorumlar = [],
+  kullaniciYorumlari = [],
+  seciliYorumTuru = "spoilersiz",
+}) {
   const puan = puanMetni(film);
   const satirlar = [
     ["Yayın tarihi", film.yayinTarihi ? TARIH_BICIMI.format(new Date(film.yayinTarihi)) : null],
@@ -280,7 +478,17 @@ export function filmDetayIcerigi({ film, eklendi = false, kullanici = null, list
         </div>
       </article>
 
-      ${listeBolumu({ film, kullanici, listeDurumu })}`;
+      ${puanBolumu({ film, kullanici, puanOzeti })}
+
+      ${listeBolumu({ film, kullanici, listeDurumu })}
+
+      ${yorumlarBolumu({
+        film,
+        kullanici,
+        yorumlar,
+        kullaniciYorumlari,
+        seciliTur: seciliYorumTuru,
+      })}`;
 }
 
 /** Bulunamayan film için 404 içeriği. */

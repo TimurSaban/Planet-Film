@@ -1,6 +1,6 @@
 // Planet Film Site - Prisma şeması
-// Aşama 1: users. Aşama 3: movies + turler (ilişkili tür tabloları).
-// Diğer tablolar (user_lists, ratings, reviews) ilgili aşamalarda eklenecek.
+// Aşama 1: users. Aşama 3: movies + turler. Aşama 4: user_lists.
+// Aşama 5: ratings + reviews.
 
 generator client {
   provider = "prisma-client-js"
@@ -20,9 +20,13 @@ model User {
   email          String   @unique
   sifreHash      String   @map("sifre_hash")
   rol            String   @default("uye")
+  // Yönetici panelinden devre dışı bırakılabilir (Aşama 6).
+  aktif          Boolean  @default(true)
   olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
 
   listeKayitlari Liste[]
+  puanlar        Puan[]
+  yorumlar       Yorum[]
 
   @@map("users")
 }
@@ -50,6 +54,8 @@ model Movie {
 
   turler         FilmTur[]
   listeKayitlari Liste[]
+  puanlar        Puan[]
+  yorumlar       Yorum[]
 
   @@index([yayinTarihi])
   @@map("movies")
@@ -94,4 +100,40 @@ model Liste {
   @@unique([kullaniciId, filmId])
   @@index([filmId])
   @@map("user_lists")
+}
+
+// Kullanıcı puanı (spec 4.4): 1-10 arası tam sayı; kullanıcı başına film başına
+// tek kayıt vardır, yeni puan eskisinin üzerine yazar.
+model Puan {
+  id              Int      @id @default(autoincrement())
+  kullaniciId     Int      @map("kullanici_id")
+  filmId          Int      @map("film_id")
+  puan            Int
+  guncellemeTarihi DateTime @updatedAt @map("guncelleme_tarihi")
+
+  kullanici User  @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+  film      Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@unique([kullaniciId, filmId])
+  @@index([filmId])
+  @@map("ratings")
+}
+
+// Film yorumu (spec 4.5): iki tür (spoilersiz / spoilerli). Bir kullanıcı bir film
+// için her türden en fazla bir yorum yazar; düzenleme aynı kaydı günceller.
+model Yorum {
+  id              Int      @id @default(autoincrement())
+  kullaniciId     Int      @map("kullanici_id")
+  filmId          Int      @map("film_id")
+  tur             String
+  icerik          String
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+  guncellemeTarihi DateTime @updatedAt @map("guncelleme_tarihi")
+
+  kullanici User  @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+  film      Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@unique([kullaniciId, filmId, tur])
+  @@index([filmId, tur])
+  @@map("reviews")
 }

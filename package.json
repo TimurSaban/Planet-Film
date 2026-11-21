@@ -10,8 +10,10 @@
   "scripts": {
     "dev": "node --env-file=.env --watch src/server.js",
     "start": "node --env-file=.env src/server.js",
+    "start:production": "node scripts/admin-bootstrap.js && node src/server.js",
     "create-admin": "node --env-file=.env scripts/create-admin.js",
     "veritabani:migrate": "prisma migrate dev",
+    "veritabani:migrate:postgres": "prisma migrate deploy --schema prisma/postgres/schema.prisma",
     "veritabani:studio": "prisma studio"
   },
   "dependencies": {

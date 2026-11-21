@@ -1,0 +1,128 @@
+// Planet Film Site - ÜRETİM (PostgreSQL) Prisma şeması
+// Geliştirmede prisma/schema.prisma (SQLite) kullanılır. Model tanımları iki
+// dosyada aynı tutulmalıdır; şema değişikliğinde ikisini birlikte güncelleyin.
+// Bu dosya Render üzerinde `prisma migrate deploy` ve `prisma generate` için kullanılır.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// PostgreSQL enum yerine rol metin olarak tutuluyor (SQLite ile ortak model).
+// Geçerli değerler: "uye" | "yonetici" (varsayılan: "uye").
+model User {
+  id             Int      @id @default(autoincrement())
+  kullaniciAdi   String   @unique @map("kullanici_adi")
+  email          String   @unique
+  sifreHash      String   @map("sifre_hash")
+  rol            String   @default("uye")
+  // Yönetici panelinden devre dışı bırakılabilir (Aşama 6).
+  aktif          Boolean  @default(true)
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+
+  listeKayitlari Liste[]
+  puanlar        Puan[]
+  yorumlar       Yorum[]
+
+  @@map("users")
+}
+
+// TMDB'den aktarılan film bilgileri yerel önbellek olarak tutulur.
+model Movie {
+  id                   Int       @id @default(autoincrement())
+  tmdbId               Int       @unique @map("tmdb_id")
+  baslik               String
+  orijinalBaslik       String    @map("orijinal_baslik")
+  ozet                 String    @default("")
+  yayinTarihi          DateTime? @map("yayin_tarihi")
+  sureDakika           Int?      @map("sure_dakika")
+  posterYolu           String?   @map("poster_yolu")
+  yonetmen             String    @default("")
+  oyuncular            String    @default("")
+  tmdbPuan             Float     @default(0) @map("tmdb_puan")
+  aramaMetni           String    @default("") @map("arama_metni")
+  yayinda              Boolean   @default(true)
+  olusturmaTarihi      DateTime  @default(now()) @map("olusturma_tarihi")
+  tmdbGuncellemeTarihi DateTime  @default(now()) @map("tmdb_guncelleme_tarihi")
+
+  turler         FilmTur[]
+  listeKayitlari Liste[]
+  puanlar        Puan[]
+  yorumlar       Yorum[]
+
+  @@index([yayinTarihi])
+  @@map("movies")
+}
+
+model Tur {
+  id     Int    @id @default(autoincrement())
+  tmdbId Int    @unique @map("tmdb_id")
+  ad     String
+
+  filmler FilmTur[]
+
+  @@map("turler")
+}
+
+model FilmTur {
+  filmId Int @map("film_id")
+  turId  Int @map("tur_id")
+
+  film Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+  tur  Tur   @relation(fields: [turId], references: [id], onDelete: Cascade)
+
+  @@id([filmId, turId])
+  @@index([turId])
+  @@map("film_turleri")
+}
+
+model Liste {
+  id              Int      @id @default(autoincrement())
+  kullaniciId     Int      @map("kullanici_id")
+  filmId          Int      @map("film_id")
+  durum           String
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+
+  kullanici User  @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+  film      Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@unique([kullaniciId, filmId])
+  @@index([filmId])
+  @@map("user_lists")
+}
+
+model Puan {
+  id              Int      @id @default(autoincrement())
+  kullaniciId     Int      @map("kullanici_id")
+  filmId          Int      @map("film_id")
+  puan            Int
+  guncellemeTarihi DateTime @updatedAt @map("guncelleme_tarihi")
+
+  kullanici User  @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+  film      Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@unique([kullaniciId, filmId])
+  @@index([filmId])
+  @@map("ratings")
+}
+
+model Yorum {
+  id              Int      @id @default(autoincrement())
+  kullaniciId     Int      @map("kullanici_id")
+  filmId          Int      @map("film_id")
+  tur             String
+  icerik          String
+  olusturmaTarihi DateTime @default(now()) @map("olusturma_tarihi")
+  guncellemeTarihi DateTime @updatedAt @map("guncelleme_tarihi")
+
+  kullanici User  @relation(fields: [kullaniciId], references: [id], onDelete: Cascade)
+  film      Movie @relation(fields: [filmId], references: [id], onDelete: Cascade)
+
+  @@unique([kullaniciId, filmId, tur])
+  @@index([filmId, tur])
+  @@map("reviews")
+}

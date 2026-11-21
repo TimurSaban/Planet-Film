@@ -81,6 +81,14 @@ kimlikRotalari.post("/giris", async (istek, yanit, sonraki) => {
         .json({ hata: "E-posta, kullanıcı adı veya şifre hatalı." });
     }
 
+    // Devre dışı bırakılan hesap giriş yapamaz (Aşama 6). Mesaj yalnızca
+    // doğru şifreden sonra verilir; hesap varlığı sızdırılmaz.
+    if (!kullanici.aktif) {
+      return yanit.status(403).json({
+        hata: "Bu hesap devre dışı bırakılmış. Site yöneticisiyle iletişime geçin.",
+      });
+    }
+
     await oturumBaslat(istek, kullaniciBilgisi(kullanici));
 
     return yanit.json({

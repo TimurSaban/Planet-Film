@@ -31,9 +31,9 @@ export function sayfaSablonu({
     menuOgeleri.push({ yol: "/profil", etiket: "Profil" });
   }
 
-  // Yöneticiye TMDB'den film ekleme bağlantısı (spec Bölüm 4.6).
+  // Yöneticiye panel bağlantısı (spec Bölüm 4.6).
   if (kullanici?.rol === "yonetici") {
-    menuOgeleri.push({ yol: "/admin/filmler/ekle", etiket: "Film Ekle" });
+    menuOgeleri.push({ yol: "/admin", etiket: "Yönetim" });
   }
 
   const menuHtml = menuOgeleri

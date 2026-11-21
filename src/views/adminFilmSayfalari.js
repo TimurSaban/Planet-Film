@@ -1,5 +1,6 @@
 import { kacisMetni } from "../lib/html.js";
 import { posterAdresi } from "../lib/tmdb.js";
+import { yonetimSekmeleri } from "./yonetimSayfalari.js";
 
 function ozetKisalt(ozet, uzunluk = 220) {
   const metin = String(ozet ?? "").replace(/\s+/g, " ").trim();
@@ -76,6 +77,8 @@ ${arama.sonuclar.map((film) => sonucKarti(film, mevcutFilmler, q)).join("\n")}
         <h1>TMDB'den Film Ekle</h1>
         <p class="kahraman-metin">Film adıyla TMDB'de arayın, doğru sonucu seçip veritabanına aktarın.</p>
       </section>
+
+      ${yonetimSekmeleri("tmdb")}
 
       ${bildirimler.join("\n      ")}
 

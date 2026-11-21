@@ -1,0 +1,34 @@
+# Render Blueprint — ücretsiz web servisi (Aşama 7)
+# PostgreSQL veritabanı Neon'da tutulur; Render'ın ücretsiz veritabanı 30 günde
+# silindiği için burada veritabanı tanımlanmaz. DATABASE_URL elle girilir.
+services:
+  - type: web
+    name: planet-film-site
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --include=dev && npx prisma generate --schema prisma/postgres/schema.prisma && npx prisma migrate deploy --schema prisma/postgres/schema.prisma
+    startCommand: npm run start:production
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      # Neon bağlantı dizesi (postgresql://...?sslmode=require)
+      - key: DATABASE_URL
+        sync: false
+      # Render tarafından rastgele üretilir.
+      - key: SESSION_SECRET
+        generateValue: true
+      # TMDB v3 API anahtarı (Sites panelinden değil, Render ortam değişkeni).
+      - key: TMDB_API_ANAHTARI
+        sync: false
+      # Ücretsiz planda shell olmadığı için ilk yönetici bu değerlerden oluşturulur.
+      # Yönetici oluşturulduktan sonra ADMIN_SIFRE silinebilir.
+      - key: ADMIN_KULLANICI_ADI
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_SIFRE
+        sync: false

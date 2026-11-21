@@ -15,6 +15,7 @@ import {
   listedenCikar,
 } from "../services/listeler.js";
 import { listeDurumSemasi, listeyeEkleSemasi } from "../validasyon/listeSemalari.js";
+import { kullaniciYorumlariListesi } from "../services/yorumlar.js";
 
 export const profilRotalari = Router();
 
@@ -45,22 +46,29 @@ function sorguEkle(yol, parametreler) {
   return `${adres.pathname}${adres.search}`;
 }
 
-// /profil — listeler sekmeli gösterilir.
+// /profil — listeler ve yorumlar sekmeli gösterilir (spec 4.3, 4.5 ve 9).
 profilRotalari.get("/", async (istek, yanit) => {
   const kullanici = yanit.locals.kullanici;
   const durumSonucu = listeDurumSemasi.safeParse(istek.query.durum);
   const durum = durumSonucu.success ? durumSonucu.data : LISTE_DURUM_DEGERLERI[0];
+  const sekme = istek.query.sekme === "yorumlar" ? "yorumlar" : "listeler";
 
-  const filmler = await kullaniciListesi(kullanici.id, durum);
+  const [filmler, yorumlar] = await Promise.all([
+    sekme === "listeler" ? kullaniciListesi(kullanici.id, durum) : [],
+    sekme === "yorumlar" ? kullaniciYorumlariListesi(kullanici.id) : [],
+  ]);
+
+  const bildirim =
+    istek.query.yorum === "silindi" ? "Yorumunuz silindi." : null;
 
   yanit.set("Cache-Control", "private, no-store");
   yanit.send(
     sayfaSablonu({
       baslik: "Profil",
-      aciklama: "Film listeleriniz.",
+      aciklama: "Film listeleriniz ve yorumlarınız.",
       aktifMenu: "/profil",
       kullanici,
-      icerik: profilIcerigi({ kullanici, durum, filmler }),
+      icerik: profilIcerigi({ kullanici, sekme, durum, filmler, yorumlar, bildirim }),
     })
   );
 });

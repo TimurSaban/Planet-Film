@@ -1,4 +1,5 @@
 import session from "express-session";
+import { prisma } from "../lib/prisma.js";
 
 export const OTURUM_CEREZ_ADI = "pfs.oturum";
 const YEDI_GUN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -33,10 +34,48 @@ export function oturumAraKatmani() {
   });
 }
 
-/** Görünümlere (layout) oturumdaki kullanıcıyı aktarır. */
-export function oturumBilgisi(istek, yanit, sonraki) {
-  yanit.locals.kullanici = istek.session?.kullanici ?? null;
-  sonraki();
+/**
+ * Görünümlere (layout) oturumdaki kullanıcıyı aktarır. Aynı zamanda hesabın
+ * hâlâ etkin olduğunu denetler: yönetici bir kullanıcıyı devre dışı bıraktığında
+ * açık oturumu da bir sonraki istekte kapatılır (spec 4.6).
+ */
+export async function oturumBilgisi(istek, yanit, sonraki) {
+  const oturumdaki = istek.session?.kullanici;
+
+  if (!oturumdaki) {
+    yanit.locals.kullanici = null;
+    return sonraki();
+  }
+
+  try {
+    const kullanici = await prisma.user.findUnique({
+      where: { id: oturumdaki.id },
+      select: { id: true, kullaniciAdi: true, email: true, rol: true, aktif: true },
+    });
+
+    if (!kullanici || !kullanici.aktif) {
+      return istek.session.destroy((hata) => {
+        if (hata) return sonraki(hata);
+        yanit.clearCookie(OTURUM_CEREZ_ADI, { path: "/" });
+        yanit.locals.kullanici = null;
+        sonraki();
+      });
+    }
+
+    const bilgi = {
+      id: kullanici.id,
+      kullaniciAdi: kullanici.kullaniciAdi,
+      email: kullanici.email,
+      rol: kullanici.rol,
+    };
+
+    // Rol değişikliği de bir sonraki istekte oturuma yansısın.
+    istek.session.kullanici = bilgi;
+    yanit.locals.kullanici = bilgi;
+    return sonraki();
+  } catch (hata) {
+    return sonraki(hata);
+  }
 }
 
 /** Oturumu yeniden oluşturup kullanıcıyı yazar (oturum sabitleme saldırısına karşı). */

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { sayfalar } from "./routes/sayfalar.js";
 import { kimlikRotalari } from "./routes/api/kimlik.js";
 import { filmRotalari } from "./routes/filmler.js";
+import { etkilesimRotalari } from "./routes/etkilesimler.js";
 import { profilRotalari } from "./routes/profil.js";
 import { adminRotalari } from "./routes/admin.js";
 import { sayfaSablonu } from "./views/layout.js";
@@ -38,6 +39,8 @@ export function uygulamaOlustur() {
   app.use("/api", kimlikRotalari);
 
   // Film sayfaları ve yönetici film aktarma akışı (Aşama 3)
+  // Puan ve yorum POST'ları (Aşama 5) film rotalarından önce bağlanır.
+  app.use("/filmler", etkilesimRotalari);
   app.use("/filmler", filmRotalari);
   // Profil ve film listeleri (Aşama 4)
   app.use("/profil", profilRotalari);

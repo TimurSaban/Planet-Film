@@ -13,6 +13,12 @@ import {
 } from "../services/filmler.js";
 import { listeParametreleri } from "../validasyon/filmSemalari.js";
 import { filmListeDurumu } from "../services/listeler.js";
+import { puanOzeti } from "../services/puanlar.js";
+import {
+  filmYorumlari,
+  kullaniciYorumlari,
+} from "../services/yorumlar.js";
+import { YORUM_TUR_DEGERLERI } from "../lib/yorumTurleri.js";
 
 export const filmRotalari = Router();
 
@@ -71,10 +77,39 @@ filmRotalari.get("/:id", async (istek, yanit) => {
     kaydedildi: "Film listenize kaydedildi.",
     cikarildi: "Film listenizden çıkarıldı.",
   };
-  const bildirim =
-    typeof istek.query.liste === "string"
-      ? listeBildirimleri[istek.query.liste] ?? null
+  const yorumBildirimleri = {
+    kaydedildi: "Yorumunuz yayınlandı.",
+    guncellendi: "Yorumunuz güncellendi.",
+    silindi: "Yorumunuz silindi.",
+  };
+
+  let bildirim = null;
+  if (typeof istek.query.puan === "string" && istek.query.puan === "kaydedildi") {
+    bildirim = "Puanınız kaydedildi.";
+  } else if (
+    typeof istek.query.yorum === "string" &&
+    istek.query.yorum !== "spoilerli" &&
+    istek.query.yorum !== "spoilersiz"
+  ) {
+    bildirim = yorumBildirimleri[istek.query.yorum] ?? null;
+  } else if (typeof istek.query.liste === "string") {
+    bildirim = listeBildirimleri[istek.query.liste] ?? null;
+  }
+
+  // Yorum sekmesi: `?yorum=spoilersiz|spoilerli` (spec 4.5). Geçersiz değerde
+  // varsayılan sekme gösterilir.
+  const istenenTur = YORUM_TUR_DEGERLERI.includes(istek.query.tur)
+    ? istek.query.tur
+    : YORUM_TUR_DEGERLERI.includes(istek.query.yorum)
+      ? istek.query.yorum
       : null;
+  const seciliYorumTuru = istenenTur ?? YORUM_TUR_DEGERLERI[0];
+
+  const [puanlar, yorumlar, kendiYorumlarim] = await Promise.all([
+    puanOzeti(guncelFilm.id, kullanici?.id ?? null),
+    filmYorumlari(guncelFilm.id, seciliYorumTuru),
+    kullanici ? kullaniciYorumlari(guncelFilm.id, kullanici.id) : [],
+  ]);
 
   yanit.set("Cache-Control", "private, no-store");
   yanit.send(
@@ -83,7 +118,17 @@ filmRotalari.get("/:id", async (istek, yanit) => {
       aciklama: guncelFilm.ozet ? guncelFilm.ozet.slice(0, 160) : undefined,
       aktifMenu: "/filmler",
       kullanici,
-      icerik: filmDetayIcerigi({ film: guncelFilm, eklendi, kullanici, listeDurumu, bildirim }),
+      icerik: filmDetayIcerigi({
+        film: guncelFilm,
+        eklendi,
+        kullanici,
+        listeDurumu,
+        bildirim,
+        puanOzeti: puanlar,
+        yorumlar,
+        kullaniciYorumlari: kendiYorumlarim,
+        seciliYorumTuru,
+      }),
     })
   );
 });
